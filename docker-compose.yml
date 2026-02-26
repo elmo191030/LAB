@@ -1,0 +1,41 @@
+services:
+
+  nginx-files:
+    image: nginx:alpine
+    container_name: nginx-files
+    ports:
+      - "8089:80"
+    volumes:
+      - ./data/photos:/usr/share/nginx/html/photos:ro
+    restart: unless-stopped
+
+  vllm:
+    image: nvcr.io/nvidia/vllm:26.01-py3
+    container_name: vllm
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/hf-cache:/root/.cache/huggingface
+    environment:
+      - MODEL_ID=${MODEL_ID:-nvidia/Qwen3-8B-FP4}
+    command: >
+      vllm serve ${MODEL_ID:-nvidia/Qwen3-8B-FP4}
+      --served-model-name ${MODEL_ID:-nvidia/Qwen3-8B-FP4}
+      --max-model-len 8192
+      --gpu-memory-utilization 0.90
+      --max-num-seqs 64
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    restart: unless-stopped
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    network_mode: host
+    environment:
+      - OPENAI_API_BASE_URL=http://192.168.1.160:8000/v1
+      - OPENAI_API_KEY=dummy
+    restart: unless-stopped
